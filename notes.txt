@@ -1,0 +1,322 @@
+Absolutely. I’d separate this into (1) a reusable project summary and (2) a short reading list on n-gram scoring, especially for cryptanalysis.
+1. Conversation summary — Caesar/Vigenère solver
+Current project
+
+You're writing a Python program to automatically solve classical ciphers, starting with Caesar ciphers and eventually moving toward more complicated ciphers such as Vigenère.
+
+Your original Caesar solver:
+
+import sys
+from langdetect import detect, LangDetectException
+
+
+def shift(input_string, shifts):
+    output_string = ""
+    for char in input_string:
+        if char.isalpha():
+            number = ord(char.upper()) - ord("A") + shifts
+            number %= 26
+            output_string += chr(ord("A") + number)
+        else:
+            output_string += char
+
+    return output_string
+
+
+def is_english(input_string):
+    try:
+        return detect(input_string) == "en"
+    except LangDetectException:
+        return False
+
+
+def solver(input_string):
+    correct_answers = []
+    for shift_amount in range(26):
+        shifted_string = shift(input_string, shift_amount)
+        if is_english(shifted_string):
+            correct_answers.append((shift_amount, shifted_string))
+    return correct_answers
+
+Problem discovered
+
+langdetect produces too many false positives.
+
+The fundamental issue is that you're treating English detection as a boolean:
+
+is_english(text) -> True / False
+
+But for cryptanalysis, what you really want is:
+
+english_score(text) -> number
+
+Then you rank all 26 Caesar possibilities.
+
+So rather than:
+
+"This candidate is English."
+"This candidate isn't English."
+
+you want:
+
+candidate A → score 47
+candidate B → score 12
+candidate C → score 83   ← probably correct
+...
+
+This is a much better fit for cryptanalysis.
+First scoring idea
+
+You proposed having a list of ~100 common English words.
+
+For each candidate:
+
+words = input_string.lower().split()
+
+Then check whether each word occurs in the dictionary.
+
+Initially:
+
+if word in common_words:
+    score += 1
+
+But you refined the idea:
+
+    Give a candidate more points depending on the length of a recognized word.
+
+So:
+
+if word in common_words:
+    score += len(word)
+
+For example:
+
+THE       → +3
+CAT       → +3
+ELEPHANT  → +8
+QZX       → +0
+
+This is better because accidentally encountering a long legitimate English word is stronger evidence than accidentally encountering "the".
+
+We also discussed eventually normalizing the score so that longer messages don't automatically win merely because they contain more letters.
+Important design decision
+
+The English scorer should become a separate helper function:
+
+def english_score(input_string):
+    ...
+
+rather than:
+
+def is_english(input_string):
+    ...
+
+This is useful because the scorer evaluates plaintext regardless of which cipher generated it.
+
+Your architecture can therefore become:
+
+shift() / decrypt()
+        ↓
+candidate plaintext
+        ↓
+english_score()
+        ↓
+score
+        ↓
+rank candidates
+
+For Caesar:
+
+def solver(input_string):
+    answers = []
+
+    for shift_amount in range(26):
+        shifted_string = shift(input_string, shift_amount)
+        score = english_score(shifted_string)
+        answers.append((score, shift_amount, shifted_string))
+
+    return sorted(answers, reverse=True)
+
+Why this is enough for Caesar
+
+A Caesar cipher has only:
+
+26 possible keys
+
+So brute forcing all possibilities is trivial.
+
+You don't need an extremely sophisticated language model just to solve Caesar. A reasonably good scoring system should distinguish the correct candidate from the others.
+
+The important insight was:
+
+    For Caesar, don't worry too much about eliminating false positives. Rank the candidates and let the highest score win.
+
+Vigenère changes the problem
+
+Vigenère is significantly harder primarily because the search space becomes much larger.
+
+A key of length 5 has:
+
+26^5 = 11,881,376
+
+possible keys.
+
+A key of length 10 has:
+
+26^10
+
+possibilities.
+
+So the important distinction is:
+
+    The scoring function doesn't necessarily need to become much more complicated; the search strategy does.
+
+For Caesar:
+
+try all 26 shifts
+
+For Vigenère, you'd eventually want techniques such as:
+
+    estimating key length
+    Index of Coincidence
+    frequency analysis
+    treating each key position as a Caesar cipher
+    n-gram scoring
+    searching promising keys rather than every possible key
+
+A reusable english_score() therefore makes sense.
+Future progression
+
+A sensible progression for the project is:
+
+1. Dictionary word scoring
+        ↓
+2. Weighted word scoring
+        ↓
+3. Character n-gram scoring
+        ↓
+4. Better search algorithms
+        ↓
+5. Caesar
+        ↓
+6. Vigenère
+        ↓
+7. Substitution ciphers
+
+You don't need to implement all of this now.
+
+The recommended approach was to make the simplest Caesar solver that works, test it, observe where it fails, and only then increase the sophistication.
+2. Good papers/resources on n-gram scoring
+
+One terminology point first: what you're looking for is generally called n-gram language modelling, character n-gram language models, or n-gram scoring. In cryptanalysis, you'll also see n-gram statistics and n-gram fitness functions.
+
+For your particular project, I'd read these in roughly this order.
+1. Jurafsky & Martin — Speech and Language Processing, Chapter 3
+
+This is probably the best starting point for you.
+
+Their chapter explains what n-grams are, how probabilities are assigned to sequences, and why an English sentence can be given a probability/score.
+
+N-gram Language Models — Jurafsky & Martin
+
+For your project, pay particular attention to:
+
+    bigrams
+    trigrams
+    probability of a sequence
+    maximum likelihood estimation
+    smoothing
+
+You don't need to understand the entire chapter before implementing something.
+2. Shannon — A Mathematical Theory of Communication
+
+This is the historical foundation.
+
+Shannon demonstrated how statistical properties of sequences of letters could be used to model English. Later descriptions of the work specifically identify his 1948 paper as foundational to statistical language modelling and character n-grams.
+
+This is more theoretical than you need right now, but it's fascinating once you start wondering:
+
+    "Why can statistics distinguish English from random text?"
+
+3. Suen — n-Gram Statistics for Natural Language Understanding and Text Processing
+
+This is particularly relevant to your idea because it deals directly with English n-gram statistics.
+
+The work derives n-gram statistics for English for n = 1...5, using a corpus of around one million words, and examines the distribution of these n-grams.
+
+This is closer to the data you'd actually want for constructing an English scorer.
+4. A Study of n-gram and Decision Tree Letter Language Modeling Methods
+
+This one is especially relevant to your eventual implementation because it specifically investigates letter-level language models.
+
+The authors construct character/letter n-gram models and compare different smoothing techniques. Interestingly, their experiments found that n-gram models outperformed the decision-tree alternatives for their letter-language-modelling task.
+
+A Study of n-gram and Decision Tree Letter Language Modeling Methods
+
+This is much closer to what you want than papers about modern neural language models.
+Particularly relevant: cryptanalysis
+
+This is where I'd focus once you understand basic n-grams.
+5. Ravi & Knight — Attacking Letter Substitution Ciphers with Integer Programming
+
+This is a very good paper for understanding why n-gram scoring is useful in cryptanalysis.
+
+The authors explicitly use low-order letter n-gram models to attack substitution ciphers and investigate how performance changes with ciphertext length and n-gram order.
+
+Attacking Letter Substitution Ciphers with Integer Programming
+
+This is probably one of the most relevant academic papers to your project.
+6. A Fast Method for Cryptanalysis of Substitution Ciphers
+
+This one is particularly nice because it demonstrates that you don't necessarily need enormous models.
+
+The paper uses digram distributions to evaluate candidate plaintexts and uses those scores to iteratively improve a key. It also discusses extending the approach to other simple ciphers.
+
+That's directly related to the question you've been asking:
+
+    "How complicated does my English scorer actually need to be?"
+
+The answer is often: not terribly complicated.
+7. Cracking General Substitution Ciphers with an n-gram
+
+This is very relevant if you eventually move beyond Caesar.
+
+The paper investigates n-gram scoring as a heuristic for substitution-cipher solving and experiments with different n-gram orders. One of the reported experiments found accuracy improving substantially as higher-order n-grams were incorporated, before eventually leveling off.
+
+Cracking General Substitution Ciphers with an n-gram
+
+This is probably the paper I'd read after you have your Caesar solver working.
+A really useful practical resource
+
+There's also an open-source cryptanalysis project that implements exactly the sort of architecture we're discussing.
+
+Dominic Breuker's Cryptanalysis project
+
+It has an n-gram scorer for evaluating candidate plaintexts, and it demonstrates its use for both Caesar and Vigenère. Interestingly, for Vigenère it uses different scoring considerations because the letters belonging to each individual Caesar subproblem aren't adjacent in the original plaintext.
+
+That's a particularly good project to browse once you've written your own version, because you can compare your design against a more mature implementation without just copying it.
+What I'd recommend you actually do
+
+Don't start by reading 10 papers.
+
+I'd go:
+
+Jurafsky & Martin
+       ↓
+implement simple trigram scorer
+       ↓
+use it on your Caesar solver
+       ↓
+test it
+       ↓
+Ravi & Knight / substitution-cipher papers
+       ↓
+start thinking about Vigenère
+
+And there's a really nice progression available here:
+
+Your current word-length scorer → character bigram scorer → trigram scorer → tetragram scorer.
+
+That would let you experimentally discover why n-grams work rather than just reading about them.
+
+For your Caesar project, I'd actually recommend that as the next exercise: build a tiny trigram scorer yourself from an English text file, rather than downloading a pre-made list. That will teach you considerably more about what's happening under the hood.

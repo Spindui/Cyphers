@@ -1,5 +1,5 @@
 import sys
-from langdetect import detect, LangDetectException
+from helpers.is_english import english_score
 
 
 def shift(input_string, shifts):
@@ -15,28 +15,27 @@ def shift(input_string, shifts):
     return output_string
 
 
-def is_english(input_string):
-    try:
-        return detect(input_string) == "en"
-    except LangDetectException:
-        return False
+def solver(input_string, amount_of_results):
+    candidates = []
 
-
-def solver(input_string):
-    correct_answers = []
     for shift_amount in range(26):
         shifted_string = shift(input_string, shift_amount)
-        if is_english(shifted_string):
-            correct_answers.append((shift_amount, shifted_string))
-    return correct_answers
+        score = english_score(shifted_string)
+        candidates.append((score, shift_amount, shifted_string))
+
+    return sorted(candidates, reverse=True)[0:amount_of_results]
 
 
 def main():
     cipher_text = sys.argv[1]
-    answers = solver(cipher_text)
+    amount_of_results = int(sys.argv[2])
 
-    for shift_amount, answer in answers:
-        print(shift_amount, answer)
+    answers = solver(cipher_text, amount_of_results)
+
+    for score, shift_amount, answer in answers:
+        print(f"Shift: {shift_amount}")
+        print(f"Score: {score}")
+        print(f"Plaintext: {answer}")
         print("----------------")
 
 
