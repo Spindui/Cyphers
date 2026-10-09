@@ -1,2 +1,2 @@
-# Vigen-re
-Vigenère cypher solver
+# Cyphers
+Some cypher solvers
