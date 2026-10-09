@@ -1,4 +1,3 @@
-import sys
 from helpers.is_english import english_score
 
 
@@ -27,8 +26,8 @@ def solver(input_string, amount_of_results):
 
 
 def main():
-    cipher_text = sys.argv[1]
-    amount_of_results = int(sys.argv[2])
+    cipher_text = input("Enter ciphertext: ")
+    amount_of_results = int(input("Enter result amount: "))
 
     answers = solver(cipher_text, amount_of_results)
 
