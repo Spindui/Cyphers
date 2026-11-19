@@ -1,23 +1,18 @@
-import sys
+from pathlib import Path
 
-with open("helpers/google-10000-english.txt", "r", encoding="utf-8") as file:
-    common_words = set(file.read().lower().split())
+WORD_LIST = Path(__file__).with_name("google-10000-english.txt")
+
+with WORD_LIST.open("r", encoding="utf-8") as file:
+    COMMON_WORDS = set(file.read().lower().split())
 
 
 def english_score(input_string):
     words = input_string.lower().split()
     score = 0
+
     for word in words:
         word = word.strip(".,!?;:'\"()[]")
-        if word in common_words:
+        if word in COMMON_WORDS:
             score += len(word)
+
     return score
-
-
-def main():
-    plaintext = sys.argv[1]
-    print(english_score(plaintext))
-
-
-if __name__ == "__main__":
-    main()

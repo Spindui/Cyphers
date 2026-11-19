@@ -15,7 +15,7 @@ def decrypt(cipher_text, key):
 
 def main():
     cipher_text = input("Enter the ciphertext: ")
-    key = [5, 2, 4, 1, 3]
+    key = [2, 4, 5, 1, 3]
 
     plaintext = decrypt(cipher_text, key)
     print("_________________")
